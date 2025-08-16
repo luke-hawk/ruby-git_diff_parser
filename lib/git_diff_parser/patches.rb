@@ -11,36 +11,69 @@ module GitDiffParser
     #
     # @return [Patches<Patch>] parsed object
     def self.parse(contents)
-      body = false
-      file_name = ''
-      patch = []
-      lines = contents.lines
+      body          = false
+      file_name     = ''
+      orig_file_name = ''
+      patch         = []
+      diff_type     = :change
+
+      lines    = contents.lines
       line_count = lines.count
-      parsed = new
+      parsed   = new
+
       lines.each_with_index do |line, count|
-        case parsed.scrub_string(line.chomp)
+        case line.chomp
         when /^diff/
           unless patch.empty?
-            parsed << Patch.new(patch.join("\n") + "\n", file: file_name)
+            parsed << Patch.new(
+              patch.join("\n") + "\n",
+              file: file_name,
+              orig_file: orig_file_name,
+              diff_type: diff_type
+            )
             patch.clear
-            file_name = ''
+            file_name      = ''
+            orig_file_name = ''
+            diff_type      = :change
           end
           body = false
-        when /^\-\-\-/
+
+        when %r{^\-\-\- a/(?<file_name>.*)}
+          orig_file_name = Regexp.last_match[:file_name]
+
+        when %r{^\-\-\- /dev/null}
+          orig_file_name = nil
+
         when %r{^\+\+\+ b/(?<file_name>.*)}
-          file_name = Regexp.last_match[:file_name].rstrip
-          body = true
+          file_name  = Regexp.last_match[:file_name]
+          body       = true
+          diff_type  = orig_file_name.nil? ? :add : :change
+
+        when %r{^\+\+\+ /dev/null}
+          file_name  = orig_file_name
+          body       = true
+          diff_type  = :delete
+
         when /^(?<body>[\ @\+\-\\].*)/
           patch << Regexp.last_match[:body] if body
           if !patch.empty? && body && line_count == count + 1
-            parsed << Patch.new(patch.join("\n") + "\n", file: file_name)
+            parsed << Patch.new(
+              patch.join("\n") + "\n",
+              file: file_name,
+              orig_file: orig_file_name,
+              diff_type: diff_type
+            )
             patch.clear
-            file_name = ''
+            file_name      = ''
+            orig_file_name = ''
+            diff_type      = :change
           end
         end
       end
+
       parsed
     end
+
 
     # @return [String]
     def scrub_string(line)

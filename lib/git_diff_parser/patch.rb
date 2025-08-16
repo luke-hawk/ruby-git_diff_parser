@@ -7,7 +7,7 @@ module GitDiffParser
     NOT_REMOVED_LINE = /^[^-]/
     NO_NEWLINE_MESSAGE = /^\\ No newline at end of file$/
 
-    attr_accessor :file, :body, :secure_hash
+    attr_accessor :file, :body, :secure_hash, :orig_file, :diff_type
     # @!attribute [rw] file
     #   @return [String, nil] file path or nil
     # @!attribute [rw] body
@@ -49,9 +49,13 @@ module GitDiffParser
     # @see https://developer.github.com/v3/repos/commits/#get-a-single-commit
     # @see https://developer.github.com/v3/pulls/#list-pull-requests-files
     def initialize(body, options = {})
-      @body = body || ''
-      @file = options[:file] || options['file'] if options[:file] || options['file']
+      @body        = body || ''
+      @file        = options[:file]        || options['file']        if options[:file]        || options['file']
       @secure_hash = options[:secure_hash] || options['secure_hash'] if options[:secure_hash] || options['secure_hash']
+
+      # new attributes
+      @orig_file   = options[:orig_file]   || options['orig_file']   if options[:orig_file]   || options['orig_file']
+      @diff_type   = options[:diff_type]   || options['diff_type']   || :change
     end
 
     # @return [Array<Line>] changed lines
